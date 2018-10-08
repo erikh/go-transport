@@ -1,5 +1,7 @@
 ## go-transport: easy-to-use TLS-backed transports for many situations
 
+[![GoDoc](https://godoc.org/github.com/erikh/go-transport?status.svg)](https://godoc.org/github.com/erikh/go-transport)
+
 **not quite ready for use; check back in a few days.**
 
 go-transport implements basic TLS-backed transports. These transports
