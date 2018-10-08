@@ -44,9 +44,29 @@ type HTTP struct {
 	*tlsInfo
 }
 
-// TCP is the basic implementation of a TLS-enabled TCP connection. See NewTCP() for more.
-type TCP struct {
+// TCPTLSClient is the basic implementation of a TLS-enabled TCP connection. See NewTCPTLS() for more.
+type TCPTLSClient interface {
+	io.ReadWriteCloser
+}
+
+// TCPTLSServer functions like a net.Listener but may or may not contain
+// security features due to the presence of a cert; interface is the same for
+// both.
+type TCPTLSServer struct {
 	*tlsInfo
+	net.Listener
+}
+
+// TCPConn is a plain TCP connection.
+type TCPConn struct {
+	*tlsInfo
+	net.Conn
+}
+
+// TLSConn is a tls-secured TCP connection.
+type TLSConn struct {
+	*tlsInfo
+	*tls.Conn
 }
 
 func mktlsInfo(cert *Cert) (*tlsInfo, error) {
@@ -104,8 +124,7 @@ func (h *HTTP) Server(host string, handler http.Handler) (*http.Server, net.List
 		tlsConfig *tls.Config
 	)
 
-	tcpTransport := &TCP{h.tlsInfo}
-	l, err = tcpTransport.Listen("tcp", host)
+	l, err = Listen(h.cert, "tcp", host)
 	tlsConfig = h.tlsConfig()
 
 	return &http.Server{
@@ -122,34 +141,51 @@ func (h *HTTP) Client(t *http.Transport) *http.Client {
 	return &http.Client{Transport: t}
 }
 
-// NewTCP sets up a new TCP transport. If a cert is provided, these will be
-// tls-encrypted transports; otherwise they will be insecure.
-func NewTCP(cert *Cert) (*TCP, error) {
+// Dial dials the tcp listener on addr and optionally wraps it in tls if a cert
+// is provided.
+func Dial(cert *Cert, network, addr string) (TCPTLSClient, error) {
 	if cert == nil {
-		return &TCP{&tlsInfo{insecure: true}}, nil
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		return &TCPConn{tlsInfo: &tlsInfo{insecure: true}, Conn: conn}, nil
 	}
 
 	tlsInfo, err := mktlsInfo(cert)
-	return &TCP{tlsInfo}, err
-}
-
-// Dial engages with the server as a raw TCP connection. If the cert is passed
-// as nil, does a straight net.Dial. Returns an io.ReadWriteCloser, as
-// *tls.Conn and net.Conn are incompatible type-wise.
-func (t *TCP) Dial(network, addr string) (io.ReadWriteCloser, error) {
-	if t.insecure {
-		return net.Dial(network, addr)
+	if err != nil {
+		return nil, err
 	}
 
-	return tls.Dial(network, addr, t.tlsConfig())
+	conn, err := tls.Dial(network, addr, tlsInfo.tlsConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	return &TLSConn{Conn: conn, tlsInfo: tlsInfo}, nil
 }
 
 // Listen listens as a secure TCP server. If the cert is passed as nil, does a
 // straight net.Listen.
-func (t *TCP) Listen(network, addr string) (net.Listener, error) {
-	if t.insecure {
-		return net.Listen(network, addr)
+func Listen(cert *Cert, network, addr string) (net.Listener, error) {
+	if cert == nil {
+		l, err := net.Listen(network, addr)
+		if err != nil {
+			return nil, err
+		}
+
+		return &TCPTLSServer{Listener: l, tlsInfo: &tlsInfo{insecure: true}}, nil
 	}
 
-	return tls.Listen(network, addr, t.tlsConfig())
+	t, err := mktlsInfo(cert)
+	if err != nil {
+		return nil, err
+	}
+
+	l, err := tls.Listen(network, addr, t.tlsConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	return &TCPTLSServer{Listener: l, tlsInfo: t}, nil
 }
