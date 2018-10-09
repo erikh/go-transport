@@ -102,6 +102,7 @@ func (ts *transportSuite) TestHTTPCRL(c *C) {
 	s, l, err := server.Server("localhost:8000", &successHandler{})
 	c.Assert(err, IsNil)
 	go s.Serve(l)
+	defer l.Close()
 
 	badClient, err := NewHTTP(clientCert)
 	_, err = badClient.Client(nil).Get("https://localhost:8000")
