@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"io"
 	"io/ioutil"
@@ -115,4 +116,64 @@ func (ts *transportSuite) TestHTTPCRL(c *C) {
 	content, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, IsNil)
 	c.Assert(string(content), Equals, "hello from go-transport")
+}
+
+func (ts *transportSuite) TestTCPTLSBasic(c *C) {
+	dir, err := ioutil.TempDir("", "")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	caFile, caKeyFile, err := caCertPair(dir)
+	c.Assert(err, IsNil)
+
+	certFile, keyFile, err := certPair(dir, caFile, caKeyFile, false)
+	c.Assert(err, IsNil)
+
+	clientFile, clientKeyFile, err := certPair(dir, caFile, caKeyFile, true)
+	c.Assert(err, IsNil)
+
+	cert, err := LoadCert(caFile, certFile, keyFile, "")
+	c.Assert(err, IsNil)
+
+	clientCert, err := LoadCert(caFile, clientFile, clientKeyFile, "")
+	c.Assert(err, IsNil)
+
+	l, err := Listen(cert, "tcp", "localhost:8000")
+	c.Assert(err, IsNil)
+	errChan := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			conn, err := l.Accept()
+			if err != nil {
+				errChan <- err
+			}
+			_, err = io.WriteString(conn, "hello from go-transport")
+			if err != nil {
+				errChan <- err
+			}
+			if err := conn.Close(); err != nil {
+				errChan <- err
+			}
+		}
+	}(ctx)
+
+	conn, err := Dial(clientCert, "tcp", "localhost:8000")
+	c.Assert(err, IsNil)
+
+	content, err := ioutil.ReadAll(conn)
+	c.Assert(err, IsNil)
+	c.Assert(string(content), Equals, "hello from go-transport")
+
+	cancel()
+	select {
+	case err := <-errChan:
+		c.Assert(err, IsNil)
+	default:
+	}
 }
