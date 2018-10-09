@@ -1,0 +1,94 @@
+package transport
+
+import (
+	"io/ioutil"
+	"os/exec"
+	. "testing"
+
+	. "gopkg.in/check.v1"
+)
+
+type transportSuite struct{}
+
+var _ = Suite(&transportSuite{})
+
+func TestTransport(t *T) {
+	TestingT(t)
+}
+
+func tempFile(dir, prefix string) (string, error) {
+	f, err := ioutil.TempFile(dir, prefix)
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+
+	return f.Name(), nil
+}
+
+func certPair(dir, caCert, caKey string, client bool) (string, string, error) {
+	cert, err := tempFile(dir, "cert-")
+	if err != nil {
+		return "", "", err
+	}
+
+	key, err := tempFile(dir, "key-")
+	if err != nil {
+		return "", "", err
+	}
+
+	args := []string{
+		"-sign-cert", caCert,
+		"-sign-key", caKey,
+		"-out-cert", cert,
+		"-out-key", key,
+		"-host", "localhost",
+	}
+
+	if client {
+		args = append(args, "-client")
+	}
+
+	return cert, key, exec.Command("certgen", args...).Run()
+}
+
+func caCertPair(dir string) (string, string, error) {
+	caCert, err := tempFile(dir, "ca-cert-")
+	if err != nil {
+		return "", "", err
+	}
+
+	caKey, err := tempFile(dir, "ca-key-")
+	if err != nil {
+		return "", "", err
+	}
+
+	return caCert, caKey, exec.Command("certgen", "-ca", "-out-cert", caCert, "-out-key", caKey).Run()
+}
+
+func (ts *transportSuite) TestCert(c *C) {
+	dir, err := ioutil.TempDir("", "go-transport-")
+	c.Assert(err, IsNil)
+
+	caCert, caKey, err := caCertPair(dir)
+	c.Assert(err, IsNil)
+
+	cert, key, err := certPair(dir, caCert, caKey, false)
+	c.Assert(err, IsNil)
+
+	ourCert, err := LoadCert(caCert, cert, key)
+	c.Assert(err, IsNil)
+	c.Assert(ourCert.Verify(), Equals, true)
+
+	c.Assert(ourCert.IsServer(), Equals, true)
+	c.Assert(ourCert.IsClient(), Equals, false)
+
+	client, clientKey, err := certPair(dir, caCert, caKey, true)
+	c.Assert(err, IsNil)
+
+	clientCert, err := LoadCert(caCert, client, clientKey)
+	c.Assert(err, IsNil)
+	c.Assert(clientCert.Verify(), Equals, true)
+	c.Assert(clientCert.IsClient(), Equals, true)
+	c.Assert(clientCert.IsServer(), Equals, false)
+}

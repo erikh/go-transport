@@ -97,8 +97,8 @@ func (c *Cert) ValidSerial(whitelist []*big.Int) bool {
 	return false
 }
 
-// Load loads the filenames provided into a *Cert.
-func Load(cacert, certfile, keyfile string) (*Cert, error) {
+// LoadCert loads the filenames provided into a *Cert.
+func LoadCert(cacert, certfile, keyfile string) (*Cert, error) {
 	ca, err := readCert(cacert, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, cacert)
