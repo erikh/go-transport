@@ -1,21 +1,23 @@
-// Package transport implements basic TLS-backed transports. These transports
-// can create both clients and servers; and if the cert is omitted, they will
-// magically transform into plain connections. Be careful with nil pointers!
-// The goal is to provide safe, common functionality from the crypto/tls,
-// net/http and net packages based on modern practices for secure connectivity
-// at the cost of the flexibility these packages provide.
+// Package transport implements basic TLS-backed transports. These transports can
+// create both clients and servers that can auth via client cert; and if the cert
+// is omitted, they will magically transform into plain connections. Be careful
+// with nil pointers!  The goal is to provide safe, common functionality from the
+// crypto/tls, net/http and net packages based on modern practices for secure
+// connectivity at the cost of the flexibility these packages provide.
 //
 // transport includes HTTP and TCP functionality, as well as a certificate
 // utility framework that sits on top of most of the crypto, pki and x509
 // packages.
 //
+// Additionally, it resolves CRLs in a meaningful way at the time of connect, if a
+// CRL is provided.
+//
 // Please note that there are many constraints in the system as of now:
 //
+// * largely only situations where client certs are needed is where this library
+// excels; I hope to change that in the future but this is my current
+// use-case...  So until that changes, this library will likely not grow much.
 // * only ecdsa keys are supported
-//
-// * CRLs are supported; but you must manually check them (we also have
-// whitelisting of serial numbers if you'd prefer to avoid CRLs entirely)
-//
 // * You must use a CA that can be verified; this means that self-signed certs
 // are largely out. Build a real CA instead.
 //
