@@ -18,8 +18,6 @@ packages.
 Please note that there are many constraints in the system as of now:
 
 * only ecdsa keys are supported
-* CRLs are supported; but you must manually check them (we also have
-  whitelisting of serial numbers if you'd prefer to avoid CRLs entirely)
 * You must use a CA that can be verified; this means that self-signed certs
   are largely out. Build a real CA instead.
 

@@ -108,10 +108,11 @@ func (t tlsInfo) tlsConfig() *tls.Config {
 	}
 
 	return &tls.Config{
-		RootCAs:      t.pool,
-		ClientCAs:    t.pool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		Certificates: []tls.Certificate{t.tlsCert},
+		VerifyPeerCertificate: t.cert.verifyPeer,
+		RootCAs:               t.pool,
+		ClientCAs:             t.pool,
+		ClientAuth:            tls.RequireAndVerifyClientCert,
+		Certificates:          []tls.Certificate{t.tlsCert},
 	}
 }
 

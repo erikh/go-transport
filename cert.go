@@ -27,6 +27,24 @@ type Cert struct {
 	certBytes []byte
 }
 
+func (c *Cert) verifyPeer(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	if c.crl == nil {
+		return nil
+	}
+
+	for _, outer := range verifiedChains {
+		for _, inner := range outer {
+			for _, cert := range c.crl.TBSCertList.RevokedCertificates {
+				if cert.SerialNumber.Cmp(inner.SerialNumber) == 0 {
+					return errors.New("certificate has been revoked")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // Verify verifies the certificate against the CA. if a CRL is supplied,
 // ensures this cert is not in the CRL's serial numbers list.
 func (c *Cert) Verify() bool {
