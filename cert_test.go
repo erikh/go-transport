@@ -5,6 +5,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"time"
 
@@ -87,6 +88,7 @@ func caCertPair(dir string) (string, string, error) {
 func (ts *transportSuite) TestCert(c *C) {
 	dir, err := ioutil.TempDir("", "go-transport-")
 	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
 
 	caCert, caKey, err := caCertPair(dir)
 	c.Assert(err, IsNil)
@@ -99,7 +101,7 @@ func (ts *transportSuite) TestCert(c *C) {
 	c.Assert(ourCert.Verify(), Equals, true)
 
 	c.Assert(ourCert.IsServer(), Equals, true)
-	c.Assert(ourCert.IsClient(), Equals, false)
+	c.Assert(ourCert.IsClient(), Equals, true)
 
 	client, clientKey, err := certPair(dir, caCert, caKey, true)
 	c.Assert(err, IsNil)

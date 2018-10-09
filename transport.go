@@ -138,6 +138,9 @@ func (h *HTTP) Server(host string, handler http.Handler) (*http.Server, net.List
 // Client provides a client with a transport configured to use TLS
 // certificate authentication.
 func (h *HTTP) Client(t *http.Transport) *http.Client {
+	if t == nil {
+		t = &http.Transport{}
+	}
 	t.TLSClientConfig = h.tlsConfig()
 	return &http.Client{Transport: t}
 }
