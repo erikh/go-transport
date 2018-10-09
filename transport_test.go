@@ -129,6 +129,13 @@ func (ts *transportSuite) TestCert(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ourCert.Verify(), Equals, false)
 
+	crlName, err = revoke(dir, clientCert, ca, ourCert.crl)
+	c.Assert(err, IsNil)
+
+	clientCert, err = LoadCert(caCert, client, clientKey, crlName)
+	c.Assert(err, IsNil)
+	c.Assert(clientCert.Verify(), Equals, false)
+
 	caCert2, caKey, err := caCertPair(dir)
 	c.Assert(err, IsNil)
 
