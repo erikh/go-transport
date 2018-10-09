@@ -140,6 +140,7 @@ func (ts *transportSuite) TestTCPTLSBasic(c *C) {
 
 	l, err := Listen(cert, "tcp", "localhost:8000")
 	c.Assert(err, IsNil)
+	defer l.Close()
 	errChan := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func(ctx context.Context) {
@@ -152,13 +153,16 @@ func (ts *transportSuite) TestTCPTLSBasic(c *C) {
 			conn, err := l.Accept()
 			if err != nil {
 				errChan <- err
+				return
 			}
 			_, err = io.WriteString(conn, "hello from go-transport")
 			if err != nil {
 				errChan <- err
+				return
 			}
 			if err := conn.Close(); err != nil {
 				errChan <- err
+				return
 			}
 		}
 	}(ctx)
