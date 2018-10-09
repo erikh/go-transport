@@ -1,6 +1,6 @@
 ## go-transport: easy-to-use TLS-backed transports for many situations
 
-[![GoDoc](https://godoc.org/github.com/erikh/go-transport?status.svg)](https://godoc.org/github.com/erikh/go-transport)
+[![Build Status](https://travis-ci.org/erikh/go-transport.svg?branch=master)](https://travis-ci.org/erikh/go-transport) [![GoDoc](https://godoc.org/github.com/erikh/go-transport?status.svg)](https://godoc.org/github.com/erikh/go-transport)
 
 **not quite ready for use; check back in a few days.**
 
