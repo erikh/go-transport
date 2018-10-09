@@ -3,6 +3,7 @@ package transport
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"io"
 	"io/ioutil"
@@ -21,17 +22,28 @@ type Cert struct {
 	privkey *ecdsa.PrivateKey
 	pubkey  ecdsa.PublicKey
 	cert    *x509.Certificate
+	crl     *pkix.CertificateList
 
 	certBytes []byte
 }
 
-// Verify verifies the certificate against the CA.
+// Verify verifies the certificate against the CA. if a CRL is supplied,
+// ensures this cert is not in the CRL's serial numbers list.
 func (c *Cert) Verify() bool {
 	if c.ca == nil {
 		return false
 	}
 
-	return c.cert.CheckSignatureFrom(c.ca.cert) == nil
+	result := c.cert.CheckSignatureFrom(c.ca.cert) == nil
+	if c.crl != nil {
+		for _, cert := range c.crl.TBSCertList.RevokedCertificates {
+			if cert.SerialNumber.Cmp(c.cert.SerialNumber) == 0 {
+				return false
+			}
+		}
+	}
+
+	return result
 }
 
 // IsClient returns true if this is a client cert.
@@ -56,11 +68,19 @@ func (c *Cert) IsServer() bool {
 	return false
 }
 
-// LoadCert loads the filenames provided into a *Cert.
-func LoadCert(cacert, certfile, keyfile string) (*Cert, error) {
-	ca, err := readCert(cacert, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, cacert)
+// LoadCert loads the filenames provided into a *Cert. If you do not wish to
+// leverage a CRL, just pass an empty string.
+func LoadCert(cacert, certfile, keyfile, crlfile string) (*Cert, error) {
+	var (
+		ca  *Cert
+		err error
+	)
+
+	if cacert != "" {
+		ca, err = readCert(cacert, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, cacert)
+		}
 	}
 
 	cert, err := readCert(certfile, ca)
@@ -70,6 +90,20 @@ func LoadCert(cacert, certfile, keyfile string) (*Cert, error) {
 
 	if err := cert.readKey(keyfile); err != nil {
 		return nil, errors.Wrap(err, keyfile)
+	}
+
+	if crlfile != "" {
+		content, err := ioutil.ReadFile(crlfile)
+		if err != nil {
+			return nil, errors.Wrap(err, crlfile)
+		}
+
+		crl, err := x509.ParseCRL(content)
+		if err != nil {
+			return nil, errors.Wrap(err, crlfile)
+		}
+
+		cert.crl = crl
 	}
 
 	return cert, nil

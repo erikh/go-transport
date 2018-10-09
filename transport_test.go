@@ -1,9 +1,13 @@
 package transport
 
 import (
+	"crypto/rand"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"io/ioutil"
 	"os/exec"
 	. "testing"
+	"time"
 
 	. "gopkg.in/check.v1"
 )
@@ -14,6 +18,29 @@ var _ = Suite(&transportSuite{})
 
 func TestTransport(t *T) {
 	TestingT(t)
+}
+
+func revoke(dir string, c *Cert, ca *Cert, crl *pkix.CertificateList) (string, error) {
+	rcs := crl.TBSCertList.RevokedCertificates
+	rc := pkix.RevokedCertificate{
+		SerialNumber:   c.cert.SerialNumber,
+		RevocationTime: time.Now(),
+	}
+
+	rcs = append(rcs, rc)
+
+	derBytes, err := ca.cert.CreateCRL(rand.Reader, ca.privkey, rcs, time.Now(), time.Now().Add(24*time.Hour*365))
+	if err != nil {
+		return "", err
+	}
+
+	f, err := ioutil.TempFile(dir, "crl-")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	return f.Name(), pem.Encode(f, &pem.Block{Type: "X509 CRL", Bytes: derBytes})
 }
 
 func tempFile(dir, prefix string) (string, error) {
@@ -76,7 +103,7 @@ func (ts *transportSuite) TestCert(c *C) {
 	cert, key, err := certPair(dir, caCert, caKey, false)
 	c.Assert(err, IsNil)
 
-	ourCert, err := LoadCert(caCert, cert, key)
+	ourCert, err := LoadCert(caCert, cert, key, "")
 	c.Assert(err, IsNil)
 	c.Assert(ourCert.Verify(), Equals, true)
 
@@ -86,20 +113,30 @@ func (ts *transportSuite) TestCert(c *C) {
 	client, clientKey, err := certPair(dir, caCert, caKey, true)
 	c.Assert(err, IsNil)
 
-	clientCert, err := LoadCert(caCert, client, clientKey)
+	clientCert, err := LoadCert(caCert, client, clientKey, "")
 	c.Assert(err, IsNil)
 	c.Assert(clientCert.Verify(), Equals, true)
 	c.Assert(clientCert.IsClient(), Equals, true)
 	c.Assert(clientCert.IsServer(), Equals, false)
 
+	ca, err := LoadCert("", caCert, caKey, "")
+	c.Assert(err, IsNil)
+
+	crlName, err := revoke(dir, ourCert, ca, &pkix.CertificateList{})
+	c.Assert(err, IsNil)
+
+	ourCert, err = LoadCert(caCert, cert, key, crlName)
+	c.Assert(err, IsNil)
+	c.Assert(ourCert.Verify(), Equals, false)
+
 	caCert2, caKey, err := caCertPair(dir)
 	c.Assert(err, IsNil)
 
-	cert2, err := LoadCert(caCert2, client, clientKey)
+	cert2, err := LoadCert(caCert2, client, clientKey, "")
 	c.Assert(err, IsNil)
 	c.Assert(cert2.Verify(), Equals, false)
 
-	cert2, err = LoadCert(caCert2, cert, key)
+	cert2, err = LoadCert(caCert2, cert, key, "")
 	c.Assert(err, IsNil)
 	c.Assert(cert2.Verify(), Equals, false)
 }
