@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"net"
 
 	"github.com/pkg/errors"
@@ -50,46 +49,6 @@ func (c *Cert) IsClient() bool {
 func (c *Cert) IsServer() bool {
 	for _, usage := range c.cert.ExtKeyUsage {
 		if usage == x509.ExtKeyUsageServerAuth {
-			return true
-		}
-	}
-
-	return false
-}
-
-// CheckCRL checks all serial numbers in the CRL against the current cert, and
-// determines if it's revoked. Returns error if so.
-func (c *Cert) CheckCRL(crlFile string) error {
-	crlBytes, err := ioutil.ReadFile(crlFile)
-	if err != nil {
-		return errors.Wrap(err, "while reading CRL")
-	}
-
-	return c.CheckCRLBytes(crlBytes)
-}
-
-// CheckCRLBytes is the same as CheckCRL (it uses this internally). What is
-// different here is that the bytes are passed instead of the filename; this
-// can be valuable when verifying many certs to avoid precious i/o time.
-func (c *Cert) CheckCRLBytes(crlBytes []byte) error {
-	crl, err := x509.ParseCRL(crlBytes)
-	if err != nil {
-		return errors.Wrap(err, "during CRL parse")
-	}
-
-	for _, cert := range crl.TBSCertList.RevokedCertificates {
-		if c.cert.SerialNumber.Cmp(cert.SerialNumber) == 0 {
-			return errors.Errorf("serial number %v matches CRL", cert.SerialNumber)
-		}
-	}
-
-	return nil
-}
-
-// ValidSerial validates the serial number of the cert with the whitelist provided.
-func (c *Cert) ValidSerial(whitelist []*big.Int) bool {
-	for _, serial := range whitelist {
-		if serial.Cmp(c.cert.SerialNumber) == 0 {
 			return true
 		}
 	}

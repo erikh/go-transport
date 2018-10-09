@@ -91,4 +91,15 @@ func (ts *transportSuite) TestCert(c *C) {
 	c.Assert(clientCert.Verify(), Equals, true)
 	c.Assert(clientCert.IsClient(), Equals, true)
 	c.Assert(clientCert.IsServer(), Equals, false)
+
+	caCert2, caKey, err := caCertPair(dir)
+	c.Assert(err, IsNil)
+
+	cert2, err := LoadCert(caCert2, client, clientKey)
+	c.Assert(err, IsNil)
+	c.Assert(cert2.Verify(), Equals, false)
+
+	cert2, err = LoadCert(caCert2, cert, key)
+	c.Assert(err, IsNil)
+	c.Assert(cert2.Verify(), Equals, false)
 }
