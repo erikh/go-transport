@@ -162,7 +162,16 @@ func (c *Cert) readKey(filename string) error {
 
 	c.privkey, err = x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
-		return err
+		tmp, newErr := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if newErr != nil {
+			return errors.Errorf("%v (SEC1 format error: %v)", newErr.Error(), err)
+		}
+
+		var ok bool
+		c.privkey, ok = tmp.(*ecdsa.PrivateKey)
+		if !ok {
+			return errors.New("not an EC private key")
+		}
 	}
 
 	c.pubkey = *c.privkey.Public().(*ecdsa.PublicKey)

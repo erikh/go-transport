@@ -1,5 +1,8 @@
+PKG := github.com/erikh/go-transport
+DOCKER_DIR := /go/src
+
 test: build
-	docker run --rm -it -w /go/src/github.com/erikh/go-transport -v "${GOPATH}/src:/go/src" go-transport bash -c 'make do-test'
+	docker run --rm -it -w "$(DOCKER_DIR)/$(PKG)" -v "${GOPATH}/src/$(PKG):$(DOCKER_DIR)/$(PKG)" go-transport bash -c 'make do-test'
 
 build:
 	@if [ ! -f $(shell which box) ]; \
@@ -11,6 +14,8 @@ build:
 
 # XXX this task is intended to run inside the above container
 do-test:
+	go get github.com/FiloSottile/mkcert
+	mkcert --install
 	cd certgen && bash test-certgen.sh
 	go install -v -tags nobuild github.com/erikh/go-transport/certgen/...
 	go get -t github.com/erikh/go-transport/...
