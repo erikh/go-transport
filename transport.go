@@ -31,6 +31,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type tlsInfo struct {
@@ -194,4 +197,17 @@ func Listen(cert *Cert, network, addr string) (net.Listener, error) {
 	}
 
 	return &TCPTLSServer{Listener: l, tlsInfo: t}, nil
+}
+
+// GRPCDial dials a GRPC service with the Client configured to the cert.
+func GRPCDial(cert *Cert, addr string) (*grpc.ClientConn, error) {
+	if cert != nil {
+		t, err := mktlsInfo(cert)
+		if err != nil {
+			return nil, err
+		}
+		return grpc.Dial(addr, grpc.WithTransportCredentials(credentials.NewTLS(t.tlsConfig())))
+	}
+
+	return grpc.Dial(addr, grpc.WithInsecure())
 }
