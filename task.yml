@@ -1,0 +1,6 @@
+---
+mountpoint: "/go/src/github.com/erikh/go-transport"
+runs:
+  main:
+    image: "golang:1.12.4"
+    command: [ "make", "do-test" ]
