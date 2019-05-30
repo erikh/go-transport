@@ -200,14 +200,16 @@ func Listen(cert *Cert, network, addr string) (net.Listener, error) {
 }
 
 // GRPCDial dials a GRPC service with the Client configured to the cert.
-func GRPCDial(cert *Cert, addr string) (*grpc.ClientConn, error) {
+func GRPCDial(cert *Cert, addr string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
 	if cert != nil {
 		t, err := mktlsInfo(cert)
 		if err != nil {
 			return nil, err
 		}
-		return grpc.Dial(addr, grpc.WithTransportCredentials(credentials.NewTLS(t.tlsConfig())))
+		options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(t.tlsConfig())))
+	} else {
+		options = append(options, grpc.WithInsecure())
 	}
 
-	return grpc.Dial(addr, grpc.WithInsecure())
+	return grpc.Dial(addr, options...)
 }
