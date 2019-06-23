@@ -56,6 +56,10 @@ type certGenerator interface {
 
 type mkCert struct{}
 
+func (c *mkCert) String() string {
+	return "mkCert"
+}
+
 func (c *mkCert) CertPair(dir, caCert, caKey string, client bool) (string, string, error) {
 	cert, err := tempFile(dir, "cert-")
 	if err != nil {
@@ -92,6 +96,10 @@ func (c *mkCert) CACertPair(dir string) (string, string, error) {
 }
 
 type certGen struct{}
+
+func (c *certGen) String() string {
+	return "certGen"
+}
 
 func (c *certGen) CertPair(dir, caCert, caKey string, client bool) (string, string, error) {
 	cert, err := tempFile(dir, "cert-")
@@ -139,6 +147,8 @@ func (ts *transportSuite) TestCert(c *C) {
 	defer os.RemoveAll(dir)
 
 	for _, cg := range certGenerators {
+		os.RemoveAll(dir)
+		os.MkdirAll(dir, 0700)
 		caCert, caKey, err := cg.CACertPair(dir)
 		c.Assert(err, IsNil)
 
@@ -158,7 +168,6 @@ func (ts *transportSuite) TestCert(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(clientCert.Verify(), Equals, true)
 		c.Assert(clientCert.IsClient(), Equals, true)
-		c.Assert(clientCert.IsServer(), Equals, false)
 
 		ca, err := LoadCert("", caCert, caKey, "")
 		c.Assert(err, IsNil)
