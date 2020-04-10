@@ -1,13 +1,16 @@
 package transport
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"net"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -19,8 +22,8 @@ type Cert struct {
 	dnsNames []string
 	ips      []net.IP
 
-	privkey *ecdsa.PrivateKey
-	pubkey  ecdsa.PublicKey
+	privkey crypto.PrivateKey
+	pubkey  crypto.PublicKey
 	cert    *x509.Certificate
 	crl     *pkix.CertificateList
 
@@ -160,22 +163,36 @@ func (c *Cert) readKey(filename string) error {
 
 	block, _ := pem.Decode(content)
 
-	c.privkey, err = x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		tmp, newErr := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if newErr != nil {
-			return errors.Errorf("%v (SEC1 format error: %v)", newErr.Error(), err)
+	switch {
+	case strings.Contains(block.Type, "EC PRIVATE KEY"):
+		var err error
+		c.privkey, err = x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return errors.Wrap(err, "Could not parse EC private key")
 		}
-
-		var ok bool
-		c.privkey, ok = tmp.(*ecdsa.PrivateKey)
-		if !ok {
-			return errors.New("not an EC private key")
+	case strings.Contains(block.Type, "RSA PRIVATE KEY"):
+		var err error
+		c.privkey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return errors.Wrap(err, "Could not parse RSA private key")
+		}
+	default:
+		var err error
+		c.privkey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return errors.Errorf("SEC1 format error: %v", err)
 		}
 	}
 
-	c.pubkey = *c.privkey.Public().(*ecdsa.PublicKey)
-
+	switch priv := c.privkey.(type) {
+	case *ecdsa.PrivateKey:
+		c.pubkey = priv.Public()
+	case *rsa.PrivateKey:
+		c.pubkey = priv.Public()
+	default:
+		return errors.Errorf("Private key type (%T) was invalid", priv)
+	}
+	// FIXME
 	return nil
 }
 
@@ -186,9 +203,9 @@ func (c *Cert) writeCert(writer io.Writer) error {
 
 // WriteKey writes the private key for the cert to the writer.
 func (c *Cert) writeKey(writer io.Writer) error {
-	bytes, err := x509.MarshalECPrivateKey(c.privkey)
+	bytes, err := x509.MarshalPKCS8PrivateKey(c.privkey)
 	if err != nil {
 		return err
 	}
-	return pem.Encode(writer, &pem.Block{Type: "EC PRIVATE KEY", Bytes: bytes})
+	return pem.Encode(writer, &pem.Block{Type: "PRIVATE KEY", Bytes: bytes})
 }

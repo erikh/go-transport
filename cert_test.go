@@ -14,7 +14,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-var certGenerators = []certGenerator{&certGen{}, &mkCert{}}
+var certGenerators = []certGenerator{&certGen{}, &mkCert{}, &mkCertRSA{}}
 
 func revoke(dir string, c *Cert, ca *Cert, crl *pkix.CertificateList) (string, error) {
 	rcs := crl.TBSCertList.RevokedCertificates
@@ -90,6 +90,46 @@ func (c *mkCert) CertPair(dir, caCert, caKey string, client bool) (string, strin
 
 func (c *mkCert) CACertPair(dir string) (string, string, error) {
 	cmd := exec.Command("mkcert", "--install", "--ecdsa")
+	cmd.Env = append(os.Environ(), fmt.Sprintf("CAROOT=%s", dir))
+
+	return path.Join(dir, "rootCA.pem"), path.Join(dir, "rootCA-key.pem"), cmd.Run()
+}
+
+type mkCertRSA struct{}
+
+func (c *mkCertRSA) String() string {
+	return "mkCert-rsa"
+}
+
+func (c *mkCertRSA) CertPair(dir, caCert, caKey string, client bool) (string, string, error) {
+	cert, err := tempFile(dir, "cert-")
+	if err != nil {
+		return "", "", err
+	}
+
+	key, err := tempFile(dir, "key-")
+	if err != nil {
+		return "", "", err
+	}
+
+	args := []string{
+		"--cert-file", cert,
+		"--key-file", key,
+		"localhost",
+	}
+
+	if client {
+		args = append([]string{"--client"}, args...)
+	}
+
+	cmd := exec.Command("mkcert", args...)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("CAROOT=%s", dir))
+
+	return cert, key, cmd.Run()
+}
+
+func (c *mkCertRSA) CACertPair(dir string) (string, string, error) {
+	cmd := exec.Command("mkcert", "--install")
 	cmd.Env = append(os.Environ(), fmt.Sprintf("CAROOT=%s", dir))
 
 	return path.Join(dir, "rootCA.pem"), path.Join(dir, "rootCA-key.pem"), cmd.Run()
