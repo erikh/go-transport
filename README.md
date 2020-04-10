@@ -5,7 +5,7 @@
 go-transport implements basic TLS-backed transports. These transports can
 create both clients and servers that can auth via client cert; and if the cert
 is omitted, they will magically transform into plain connections. Be careful
-with nil pointers!  The goal is to provide safe, common functionality from the
+with nil pointers! The goal is to provide safe, common functionality from the
 crypto/tls, net/http and net packages based on modern practices for secure
 connectivity at the cost of the flexibility these packages provide.
 
@@ -18,11 +18,11 @@ CRL is provided.
 
 Please note that there are many constraints in the system as of now:
 
-* largely only situations where client certs are needed is where this library
+- largely only situations where client certs are needed is where this library
   excels; I hope to change that in the future but this is my current
-  use-case...  So until that changes, this library will likely not grow much.
-* only ecdsa keys are supported
-* You must use a CA that can be verified; this means that self-signed certs
+  use-case... So until that changes, this library will likely not grow much.
+- RSA, ECDSA, PKCS#1 and PKCS#8 PEM are the only supported key formats.
+- You must use a CA that can be verified; this means that self-signed certs
   are largely out. Build a real CA instead.
 
 ## Example
@@ -103,12 +103,12 @@ func main() {
 
 ## Future Plans
 
-* Websockets
-* Server side only TLS
+- Websockets
+- Server side only TLS
 
 ## License
 
-Copyright (c) 2018 Erik Hollensbe
+Copyright (c) 2018-2020 Erik Hollensbe
 
 MIT License
 
